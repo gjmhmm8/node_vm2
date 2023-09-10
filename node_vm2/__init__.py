@@ -10,7 +10,7 @@ from os import path, environ
 from builtins import *
 from .__pkginfo__ import __version__
 from inspect import isfunction
-
+import inspect
 NODE_EXECUTABLE = "node"
 VM_SERVER = path.join(path.dirname(__file__), "vm-server")
 
@@ -276,6 +276,33 @@ class NodeVMModule:
         if self.CLOSE_ON_EXIT:
             self.vm.destroy()
 
+    def __getattribute__(self, name):
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            return self.get_member(name)
+
+    def __setattr__(self, name, value):
+        # 获取当前执行栈
+        stack = inspect.stack()
+        # 获取上一层的帧对象
+        caller_frame = stack[1].frame
+        # 获取上一层的局部变量和全局变量
+        caller_locals = caller_frame.f_locals
+        caller_globals = caller_frame.f_globals
+        # 检查是否有self变量，并且与当前对象相同
+        if "self" in caller_locals and caller_locals["self"] is self:
+            super().__setattr__(name, value)
+        elif "self" in caller_globals and caller_globals["self"] is self:
+            # 类内部的调用，使用默认方法
+            super().__setattr__(name, value)
+        else:
+            super().__setattr__(name, value)
+            return self.set_member(name, value)
+
+    def __call__(self, *args):
+        self.call(*args)
+
     def communicate(self, data):
         """Wraps :meth:`vm.communicate`. So we can set additional properties
         on the data before communication.
@@ -289,6 +316,7 @@ class NodeVMModule:
             "action": "call",
             "args": args
         })
+
 
     def get(self):
         """Return the module, in case that the module itself is json-encodable.
@@ -431,8 +459,8 @@ class VMServer:
 
         def reader():
             for data in self.process.stdout:
-                with open('logout.txt', 'ab+') as f:
-                    f.write(data)
+                # with open('logout.txt', 'ab+') as f:
+                #     f.write(data)
                 try:
                     # FIXME: https://github.com/PyCQA/pylint/issues/922
                     data = json.loads(data.decode("utf-8")) or {}
@@ -610,8 +638,8 @@ class VMServer:
     def write(self, text):
         with self.write_lock:
             self.process.stdin.write(text.encode("utf-8") + b"\n")
-        with open('log.txt', 'a+') as f:
-            f.write(text + "\n")
+        # with open('log.txt', 'a+') as f:
+        #     f.write(text + "\n")
 
 
 class VMError(Exception):
