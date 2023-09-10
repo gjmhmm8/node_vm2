@@ -494,7 +494,7 @@ class VMServer:
                         elif vm.console == "inherit":
                             sys.stdout.write(data.get("value", "") + "\n")
                     elif data["name"] == "pyfun":
-                        res = fun_list[int(data["ids"][5:])]()
+                        res = fun_list[int(data["ids"][5:])](*data["value"])
                         text = {'action': 'ret', 'cid': data['cid'], 'value': res}
                         text = self.obj_to_str(text)
                         text['inputEncode'] = True
